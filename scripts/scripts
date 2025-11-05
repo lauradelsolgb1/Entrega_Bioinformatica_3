@@ -1,0 +1,67 @@
+Ir con terminal al directorio donde esté el proyecto y ejecutar
+
+mkdir entrega_3
+
+cd entrega_3
+
+•	En el siguiente enlace https://www.ncbi.nlm.nih.gov/gene/?term=ID+%3D+948211%2C+E.+coli+K-12+MG1655  .En la parte de General Gene information ira a Orthologs from OrthoDB, donde se descargó el querry gene y se guardó con el nombre ortólogos.fasta
+
+•	En el siguiente enlace https://www.ncbi.nlm.nih.gov/gene/879230 . En la parte de General gene information ir a Orthologs from OrthoDB, donde se descargó el Outgroup y se guardó con el nombre ortologos_comparativos.fasta
+
+Ambos archivos .fasta se guardaron dentro de la carpeta entrega_3
+
+Para activar el entorno de trabajo, ejecutar  
+ 
+conda activate bioinfo
+
+Se realiza limpieza de los archivos .fasta , la explicación más detallada de la toma de decisiones se encuentra en el archivo Proyecto_integrados-Entraga3 (2).pdf, las depuraciones fueron las siguientes:
+
+•	para quitar las secuencias muy cortas:
+
+seqkit seq -m 150 ortologos.fasta > ortologos_minlen.fasta
+
+seqkit seq -m 150 ortologos_comparativos.fasta > comparativos_minlen.fasta
+
+•	eliminar duplicados:
+
+seqkit rmdup -s ortologos_minlen.fasta > ortologos_nodup.fasta
+
+seqkit rmdup -s comparativos_minlen.fasta > comparativos_nodup.fasta
+
+awk 'BEGIN{allow=0.05} /^>/{print; next} {t=length($0); s=$0; gsub(/N/,"",s);
+     if((t-length(s))/t<=allow) print $0}' ortologos_nodup.fasta > ortologos_noamb.fasta
+
+awk 'BEGIN{allow=0.05} /^>/{print; next} {t=length($0); s=$0; gsub(/N/,"",s);
+     if((t-length(s))/t<=allow) print $0}' comparativos_nodup.fasta > comparativos_noamb.fasta
+
+•	Reducir redundancia de secuencias:
+
+cd-hit-est -i ortologos_noamb.fasta -o ortologos_cd98.fasta -c 0.98 -n 10 -aS 0.80 -M 0 -T 0 -d 0
+
+cd-hit-est -i comparativos_noamb.fasta -o comparativos_cd98.fasta -c 0.98 -n 10 -aS 0.80 -M 0 -T 0 -d 0
+
+•	Tener conjunto representativo de 100 secuencias:
+
+seqkit sample -n 100 ortologos_cd98.fasta > ortologos_subsample.fasta
+
+seqkit sample -n 100 comparativos_cd98.fasta > comparativos_subsample.fasta
+
+•	cambiar los nombres :
+
+awk 'BEGIN{OFS=""} /^>/{gsub(/ /,"_"); gsub(/[^A-Za-z0-9_]/,""); print; next} {print}' \
+    ortologos_subsample.fasta > ortologos_final_names.fasta
+
+awk 'BEGIN{OFS=""} /^>/{gsub(/ /,"_"); gsub(/[^A-Za-z0-9_]/,""); print; next} {print}' \
+    comparativos_subsample.fasta > ortologos_comparativos_final_name.fasta
+
+Para realizar la unión de los archivos .fasta ejecutar el siguiente comando 
+
+cat ortologos_final_names.fasta ortologos_comparativos_final_name.fasta > ortologos_todos.fasta
+
+alineamiento múltiple con la herramienta MAFFT
+ 
+mafft --auto ortologos_todos.fasta > ortologos_alineados.fasta
+
+Análisis del modelo con IQ-Tree
+
+iqtree -s ortologos_alineados_tag.fasta -m TEST -nt AUTO
